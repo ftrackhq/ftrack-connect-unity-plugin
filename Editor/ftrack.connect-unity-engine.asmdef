@@ -1,0 +1,17 @@
+{
+    "name": "ftrack.connect-unity-engine",
+    "references": [
+        "Unity.Scripting.Python.Editor",
+        "Unity.Recorder.Editor"
+    ],
+    "optionalUnityReferences": [],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": []
+}
