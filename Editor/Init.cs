@@ -360,7 +360,7 @@ namespace UnityEditor.Ftrack.ConnectUnityEngine
                     // Create the directory
                     Directory.CreateDirectory(destinationDirectory);
                 }
-                catch (Exception e)
+                catch (Exception)
                 {
                     UnityEngine.Debug.LogError($"Cannot import asset " +
                         $"\"{assetName}\": unable to create directory " +
@@ -373,7 +373,7 @@ namespace UnityEditor.Ftrack.ConnectUnityEngine
                     // Copy the file
                     File.Copy(sourceFile, destinationFile, overwrite:true);
                 }
-                catch (Exception e)
+                catch (Exception)
                 {
                     UnityEngine.Debug.LogError($"Cannot import asset " +
                         $"\"{assetName}\": unable to copy \"{sourceFile}\" " +
@@ -391,7 +391,7 @@ namespace UnityEditor.Ftrack.ConnectUnityEngine
                 String modelImporterPath = destinationFile;
                 modelImporterPath = "Assets" + modelImporterPath.Substring(Application.dataPath.Length);
 
-                dynamic modelImporter = AssetImporter.GetAtPath(modelImporterPath);
+                ModelImporter modelImporter = AssetImporter.GetAtPath(modelImporterPath) as ModelImporter;
                 if (!modelImporter)
                 {
                     throw new FtrackException($"Could not find the asset importer " +
@@ -421,6 +421,7 @@ namespace UnityEditor.Ftrack.ConnectUnityEngine
                         dynamic unityImportMaterials = options.get("unityImportMaterials", null);
                         dynamic unityImportAnim      = options.get("unityImportAnim", null);
                         dynamic unityAnimType        = options.get("unityAnimType", null);
+                        dynamic unityLoopTime        = options.get("unityLoopTime", null);
 
                         if (unityImportAnim != null)
                         {
@@ -459,6 +460,17 @@ namespace UnityEditor.Ftrack.ConnectUnityEngine
                                     $"\"None\"");
                                     modelImporter.animationType = ModelImporterAnimationType.None;
                             }
+                        }
+
+                        if (unityLoopTime != null)
+                        {
+                            // Set the "Loop Time" property on the imported clips
+                            var clipAnimations = modelImporter.defaultClipAnimations;
+                            foreach (var clip in clipAnimations)
+                            {
+                                clip.loopTime = (bool) unityLoopTime;
+                            }
+                            modelImporter.clipAnimations = clipAnimations;
                         }
                     }
                 }
