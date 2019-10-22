@@ -1,9 +1,11 @@
-using System.Reflection;
+using Python.Runtime;
+using UnityEditor.Ftrack.ConnectUnityEngine;
 using UnityEditor.Recorder;
-using System.Collections;
 using UnityEditor.Scripting.Python;
+using System.Collections;
+using System.Reflection;
 
-namespace UnityEditor.ftrack
+namespace UnityEditor.Ftrack
 {
     public class ImageSequenceRecorder : FtrackRecorder<ImageRecorderSettings> {
         private static RecorderSettings s_movieRecorderSettings = null;
@@ -98,23 +100,21 @@ namespace UnityEditor.ftrack
 
                 if (state == PlayModeStateChange.EnteredEditMode)
                 {
-                    // Publish with ftrack
-                    string publishArgs = null;
-                    if (MovieRecorderSettings == null)
+                    // Publish with ftrack. Build a Python dictionary for the 
+                    // args
+                    using (Py.GIL())
                     {
-                        publishArgs = string.Format(
-                            "{{'image_path':'{0}', 'image_ext':'{1}'}}",
-                            RecorderPath, RecorderSettings.extension);
-                    }
-                    else
-                    {
-                        publishArgs = string.Format(
-                            "{{'image_path':'{0}', 'image_ext':'{1}', 'movie_path':'{2}', 'movie_ext':'{3}'}}",
-                            RecorderPath, RecorderSettings.extension,
-                            MovieRecorderPath, MovieRecorderSettings.extension);
-                    }
+                        PyDict publishArgs = new PyDict();
+                        publishArgs[new PyString("image_path")] = new PyString(RecorderPath);
+                        publishArgs[new PyString("image_ext")] = new PyString(RecorderSettings.extension);
 
-                    PythonRunner.CallServiceOnClient("'publish_callback'", string.Format("\"{0}\"", publishArgs));
+                        if (MovieRecorderSettings)
+                        {
+                            publishArgs[new PyString("movie_path")] = new PyString(MovieRecorderPath);
+                            publishArgs[new PyString("movie_ext")] = new PyString(MovieRecorderSettings.extension);
+                        }
+                        Client.CallService("publish", publishArgs);
+                    }
 
                     EditorApplication.playModeStateChanged -= OnPlayModeStateChange;
                     RecorderPath = s_origFilePath;
@@ -175,10 +175,16 @@ namespace UnityEditor.ftrack
 
                 if (state == PlayModeStateChange.EnteredEditMode)
                 {
-                    // Publish with ftrack
-                    PythonRunner.CallServiceOnClient("'publish_callback'", string.Format(
-                        "\"{{'movie_path':'{0}', 'movie_ext':'{1}'}}\"",
-                        RecorderPath, RecorderSettings.extension));
+                    // Publish with ftrack. Build a Python dictionary for the 
+                    // args
+                    using (Py.GIL())
+                    {
+                        PyDict publishArgs = new PyDict();
+                        publishArgs[new PyString("movie_path")] = new PyString(RecorderPath);
+                        publishArgs[new PyString("movie_ext")] = new PyString(RecorderSettings.extension);
+
+                        Client.CallService("publish", publishArgs);
+                    }
 
                     EditorApplication.playModeStateChanged -= OnPlayModeStateChange;
                     RecorderPath = s_origFilePath;
