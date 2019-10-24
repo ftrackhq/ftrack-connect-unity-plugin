@@ -1,7 +1,6 @@
 using Python.Runtime;
 using UnityEditor.Ftrack.ConnectUnityEngine;
 using UnityEditor.Recorder;
-using UnityEditor.Scripting.Python;
 using System.Collections;
 using System.Reflection;
 
@@ -11,6 +10,11 @@ namespace UnityEditor.Ftrack
         private static RecorderSettings s_movieRecorderSettings = null;
         private static string s_origMovieFilePath = null;
         private static readonly string s_movieFilename = "reviewable";
+
+        // Keys for storing publish arg values as session state variables
+        // (so we do not lose these values when the Recorder enters play mode
+        const string assetTypeKey = "PublishInfoAssetType";
+        const string publishPackageKey = "PublishInfoPublishPackage";
 
         private static RecorderSettings MovieRecorderSettings
         {
@@ -57,8 +61,13 @@ namespace UnityEditor.Ftrack
             }
         }
 
-        public static void Record()
+        internal static void Record(ServerSideUtils.PublishInfo info)
         {
+            // Save the publish info in session state variables
+            // so we can fetch them after domain reload
+            SessionState.SetString(assetTypeKey, info.assetType);
+            SessionState.SetBool(publishPackageKey, info.publishPackage);
+
             IsRecording = true;
 
             s_origFilePath = RecorderPath;
@@ -113,7 +122,16 @@ namespace UnityEditor.Ftrack
                             publishArgs[new PyString("movie_path")] = new PyString(MovieRecorderPath);
                             publishArgs[new PyString("movie_ext")] = new PyString(MovieRecorderSettings.extension);
                         }
-                        Client.CallService("publish", publishArgs);
+
+                        // Rebuild the publish info and resume the publish 
+                        // operation
+                        ServerSideUtils.PublishInfo info = 
+                            new ServerSideUtils.PublishInfo(
+                                SessionState.GetString(assetTypeKey, ""), 
+                                SessionState.GetBool(publishPackageKey, false)
+                            );
+                        
+                        ServerSideUtils.RecordingDone(info, publishArgs);
                     }
 
                     EditorApplication.playModeStateChanged -= OnPlayModeStateChange;
@@ -126,6 +144,10 @@ namespace UnityEditor.Ftrack
     }
 
     public class MovieRecorder : FtrackRecorder<MovieRecorderSettings> {
+        // Keys for storing publish arg values as session state variables
+        // (so we do not lose these values when the Recorder enters play mode
+        const string assetTypeKey = "PublishInfoAssetType";
+        const string publishPackageKey = "PublishInfoPublishPackage";
         /// <summary>
         /// We must install the delegate on each domain reload
         /// </summary>
@@ -140,8 +162,13 @@ namespace UnityEditor.Ftrack
             }
         }
 
-        public static void Record()
+        internal static void Record(ServerSideUtils.PublishInfo info)
         {
+            // Save the publish info in session state variables
+            // so we can fetch them after domain reload
+            SessionState.SetString(assetTypeKey, info.assetType);
+            SessionState.SetBool(publishPackageKey, info.publishPackage);
+
             IsRecording = true;
 
             s_origFilePath = RecorderPath;
@@ -183,7 +210,15 @@ namespace UnityEditor.Ftrack
                         publishArgs[new PyString("movie_path")] = new PyString(RecorderPath);
                         publishArgs[new PyString("movie_ext")] = new PyString(RecorderSettings.extension);
 
-                        Client.CallService("publish", publishArgs);
+                        // Rebuild the publish info and resume the publish 
+                        // operation
+                        ServerSideUtils.PublishInfo info = 
+                            new ServerSideUtils.PublishInfo(
+                                SessionState.GetString(assetTypeKey, ""), 
+                                SessionState.GetBool(publishPackageKey, false)
+                            );
+                        
+                        ServerSideUtils.RecordingDone(info, publishArgs);
                     }
 
                     EditorApplication.playModeStateChanged -= OnPlayModeStateChange;

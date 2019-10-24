@@ -222,6 +222,7 @@ namespace UnityEditor.Ftrack.ConnectUnityEngine
     /// </summary>
     public class ServerSideUtils
     {
+        private const string exportPackageProgressBarTitle = "Exporting assets";
         /// <summary>
         /// Will select the assests matching the passed guids
         /// </summary>
@@ -480,6 +481,148 @@ namespace UnityEditor.Ftrack.ConnectUnityEngine
                 UnityEngine.Debug.Log($"Successfully imported {assetName} " +
                     $"({sourceFile} -> {destinationFile}");
             }
+        }
+        
+        internal struct PublishInfo
+        {
+            internal PublishInfo(string assetType, bool publishPackage)
+            {
+                this.assetType = assetType;
+                this.publishPackage = publishPackage;
+            }
+
+            internal string assetType;
+            internal bool publishPackage;
+        }
+        /// <summary>
+        /// Prepares the publish components and calls the client when the work 
+        /// is done
+        /// </summary>
+        /// <param name="jsonArgs">JSON string of a dictionary containing the 
+        /// following keys: 'asset_type', 'options'</param>
+        public static void Publish(PyObject jsonArgs)
+        {
+            // unpack the arguments
+            PublishInfo publishInfo = new PublishInfo();
+            using (Py.GIL())
+            {
+                dynamic jsonModule = Py.Import("json");
+                dynamic arguments = jsonModule.loads(jsonArgs);
+                publishInfo.assetType = arguments["asset_type"];
+
+                dynamic options = arguments["options"];
+                publishInfo.publishPackage = options["publishPackage"];
+            }
+
+            // Start with the recordings. The package component will get 
+            // generated after recording is done
+            GenerateRecordings(publishInfo);
+        }
+        internal static void GenerateRecordings(PublishInfo info)
+        {
+            // This method initiates the Unity recordings by calling into the 
+            // Recorder. Once it is done recording, the Recorder will 
+            // call RecordingDone
+            if (info.assetType != "img")
+            {
+                MovieRecorder.Record(info);
+            } 
+            else 
+            {
+                ImageSequenceRecorder.Record(info);
+            }
+        }
+
+        internal static void RecordingDone(PublishInfo info, PyObject publishArgs)
+        {
+            // Called by the Recorder when it is done recording
+            // Will export the selection as a package if required, then call 
+            // into the client to complete the publish
+            if (info.publishPackage)
+            {
+                string filePath = System.IO.Path.GetTempPath() + "/" + 
+                    Application.productName + "/" + "selection.unitypackage";
+                
+                bool exported = ExportSelection(filePath);
+
+                // Prepare export results for the client
+                using (Py.GIL())
+                {
+                    dynamic args = publishArgs;
+                    args["success"] = exported.ToPython();
+
+                    if (exported)
+                    {
+                        args["package_filepath"] = filePath.ToPython();
+                    }
+                    else
+                    {
+                        string errorMsg = "Could not export the selection as a " +
+                            "package. Make sure you have a valid selection in " +
+                            "Unity before publishing";
+                        args["error_msg"] = errorMsg.ToPython();
+                    }
+                }
+            }
+
+            // Call the client
+            Client.CallService("publish", publishArgs);
+        }
+
+        internal static bool ExportSelection(string targetFilePath)
+        {
+            EditorUtility.DisplayProgressBar(
+                exportPackageProgressBarTitle,
+                "Retrieving selection",
+                0.0f);
+
+            // Start with actual selected assets
+            HashSet<string> assetPathsToExport = new HashSet<string>();
+            foreach (var g in Selection.assetGUIDs)
+            {
+                string assetPath = AssetDatabase.GUIDToAssetPath(g);
+                if (!string.IsNullOrEmpty(assetPath))
+                {
+                    assetPathsToExport.Add(assetPath);
+                }
+            }
+
+            // Then pick-up selected game objects and find their 
+            // associated assets
+            foreach (var go in Selection.gameObjects)
+            {
+                string assetPath = PrefabUtility.GetPrefabAssetPathOfNearestInstanceRoot(go);
+                if (!string.IsNullOrEmpty(assetPath))
+                {
+                    assetPathsToExport.Add(assetPath);
+                }
+            }
+
+            string [] assetPaths = new string [assetPathsToExport.Count];
+            assetPathsToExport.CopyTo(assetPaths);
+
+            EditorUtility.DisplayProgressBar(
+                exportPackageProgressBarTitle,
+                $"Exporting {assetPathsToExport.Count} asset(s)",
+                0.1f);
+
+            try
+            {
+                // Export the package
+                AssetDatabase.ExportPackage(assetPaths, 
+                    targetFilePath,
+                    ExportPackageOptions.IncludeDependencies);
+            }
+            catch (UnityException e)
+            {
+                UnityEngine.Debug.LogException(e);
+                EditorUtility.ClearProgressBar();
+
+                return false;
+            }
+
+            EditorUtility.ClearProgressBar();
+            return true;
         }
     }
 }
