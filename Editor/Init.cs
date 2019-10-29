@@ -7,6 +7,7 @@ using System.Diagnostics;
 using System.IO;
 using UnityEditor.Scripting.Python;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace UnityEditor.Ftrack.ConnectUnityEngine
 {
@@ -541,9 +542,9 @@ namespace UnityEditor.Ftrack.ConnectUnityEngine
             if (info.publishPackage)
             {
                 string filePath = System.IO.Path.GetTempPath() + "/" + 
-                    Application.productName + "/" + "selection.unitypackage";
+                    Application.productName + "/" + "currentScene.unitypackage";
                 
-                bool exported = ExportSelection(filePath);
+                bool exported = ExportCurrentScene(filePath);
 
                 // Prepare export results for the client
                 using (Py.GIL())
@@ -557,9 +558,8 @@ namespace UnityEditor.Ftrack.ConnectUnityEngine
                     }
                     else
                     {
-                        string errorMsg = "Could not export the selection as a " +
-                            "package. Make sure you have a valid selection in " +
-                            "Unity before publishing";
+                        string errorMsg = "Could not export the current scene. " +
+                            "Make sure a scene is loaded before publishing";
                         args["error_msg"] = errorMsg.ToPython();
                     }
                 }
@@ -569,47 +569,23 @@ namespace UnityEditor.Ftrack.ConnectUnityEngine
             Client.CallService("publish", publishArgs);
         }
 
-        internal static bool ExportSelection(string targetFilePath)
+        internal static bool ExportCurrentScene(string targetFilePath)
         {
+            var currentScene = SceneManager.GetActiveScene();
+            if (!currentScene.IsValid())
+            {
+                return false;
+            }
+            
             EditorUtility.DisplayProgressBar(
                 exportPackageProgressBarTitle,
-                "Retrieving selection",
-                0.0f);
-
-            // Start with actual selected assets
-            HashSet<string> assetPathsToExport = new HashSet<string>();
-            foreach (var g in Selection.assetGUIDs)
-            {
-                string assetPath = AssetDatabase.GUIDToAssetPath(g);
-                if (!string.IsNullOrEmpty(assetPath))
-                {
-                    assetPathsToExport.Add(assetPath);
-                }
-            }
-
-            // Then pick-up selected game objects and find their 
-            // associated assets
-            foreach (var go in Selection.gameObjects)
-            {
-                string assetPath = PrefabUtility.GetPrefabAssetPathOfNearestInstanceRoot(go);
-                if (!string.IsNullOrEmpty(assetPath))
-                {
-                    assetPathsToExport.Add(assetPath);
-                }
-            }
-
-            string [] assetPaths = new string [assetPathsToExport.Count];
-            assetPathsToExport.CopyTo(assetPaths);
-
-            EditorUtility.DisplayProgressBar(
-                exportPackageProgressBarTitle,
-                $"Exporting {assetPathsToExport.Count} asset(s)",
+                $"Exporting scene: {currentScene.name}",
                 0.1f);
 
             try
             {
                 // Export the package
-                AssetDatabase.ExportPackage(assetPaths, 
+                AssetDatabase.ExportPackage(currentScene.path, 
                     targetFilePath,
                     ExportPackageOptions.IncludeDependencies);
             }
