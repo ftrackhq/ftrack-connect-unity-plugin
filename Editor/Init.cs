@@ -1,5 +1,5 @@
 ﻿// Copyright (c) 2019 ftrack
-#define DEBUG_FTRACK 
+//#define DEBUG_FTRACK 
 using Python.Runtime;
 using System;
 using System.Collections.Generic;
