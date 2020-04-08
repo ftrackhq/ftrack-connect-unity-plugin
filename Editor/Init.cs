@@ -558,7 +558,7 @@ namespace UnityEditor.Ftrack.ConnectUnityEngine
                         args["package_filepath"] = filePath.ToPython();
 
                         string[] dependencies = AssetDatabase.GetDependencies(currentScene.path, true);
-                        args["scene_dependencies"] = dependencies.ToPython();
+                        args["package_dependencies"] = dependencies.ToPython();
                     }
                     else
                     {
