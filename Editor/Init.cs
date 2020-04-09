@@ -543,8 +543,9 @@ namespace UnityEditor.Ftrack.ConnectUnityEngine
             {
                 string filePath = System.IO.Path.GetTempPath() + "/" + 
                     Application.productName + "/" + "currentScene.unitypackage";
-                
-                bool exported = ExportCurrentScene(filePath);
+
+                Scene currentScene = SceneManager.GetActiveScene();
+                bool exported = ExportScene(currentScene, filePath);
 
                 // Prepare export results for the client
                 using (Py.GIL())
@@ -555,6 +556,9 @@ namespace UnityEditor.Ftrack.ConnectUnityEngine
                     if (exported)
                     {
                         args["package_filepath"] = filePath.ToPython();
+
+                        string[] dependencies = AssetDatabase.GetDependencies(currentScene.path, true);
+                        args["package_dependencies"] = dependencies.ToPython();
                     }
                     else
                     {
@@ -569,23 +573,22 @@ namespace UnityEditor.Ftrack.ConnectUnityEngine
             Client.CallService("publish", publishArgs);
         }
 
-        internal static bool ExportCurrentScene(string targetFilePath)
+        internal static bool ExportScene(Scene scene, string targetFilePath)
         {
-            var currentScene = SceneManager.GetActiveScene();
-            if (!currentScene.IsValid())
+            if (!scene.IsValid())
             {
                 return false;
             }
             
             EditorUtility.DisplayProgressBar(
                 exportPackageProgressBarTitle,
-                $"Exporting scene: {currentScene.name}",
+                $"Exporting scene: {scene.name}",
                 0.1f);
 
             try
             {
                 // Export the package
-                AssetDatabase.ExportPackage(currentScene.path, 
+                AssetDatabase.ExportPackage(scene.path, 
                     targetFilePath,
                     ExportPackageOptions.IncludeDependencies);
             }
