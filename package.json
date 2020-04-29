@@ -1,7 +1,7 @@
 {
 "name": "ftrack-connect-unity-plugin",
 "displayName" : "ftrack",
-"version" : "0.1.0-preview",
+"version" : "1.0.0-preview.1",
   "dependencies": {
     "com.unity.scripting.python": "2.0.0-preview.6",
     "com.unity.recorder": "2.0.3-preview.1",
