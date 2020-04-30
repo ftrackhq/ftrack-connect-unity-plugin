@@ -539,6 +539,10 @@ namespace UnityEditor.Ftrack.ConnectUnityEngine
             // Called by the Recorder when it is done recording
             // Will export the selection as a package if required, then call 
             // into the client to complete the publish
+
+            dynamic args = publishArgs;
+            args["success"] = exported.ToPython();
+
             if (info.publishPackage)
             {
                 string filePath = System.IO.Path.GetTempPath() + "/" + 
@@ -550,8 +554,6 @@ namespace UnityEditor.Ftrack.ConnectUnityEngine
                 // Prepare export results for the client
                 using (Py.GIL())
                 {
-                    dynamic args = publishArgs;
-                    args["success"] = exported.ToPython();
 
                     if (exported)
                     {
