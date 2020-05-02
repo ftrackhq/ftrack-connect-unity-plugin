@@ -232,7 +232,7 @@ namespace UnityEditor.Ftrack
     public class FtrackRecorder<T> where T : RecorderSettings
     {
         protected static string s_origFilePath = null;
-        private static RecorderSettings s_recorderSettings = null;
+        private static T s_recorderSettings = null;
         protected static string s_filename = "test";
         protected static string s_lockFileName = ".RecordTimeline.lock";
 
@@ -295,7 +295,7 @@ namespace UnityEditor.Ftrack
             return propInfo.GetValue(from);
         }
 
-        protected static RecorderSettings RecorderSettings
+        protected static T RecorderSettings
         {
             get
             {
@@ -331,7 +331,7 @@ namespace UnityEditor.Ftrack
             recorderWindow.StartRecording();
         }
 
-        protected static RecorderSettings GetRecorder<U>() where U : RecorderSettings
+        protected static U GetRecorder<U>() where U : RecorderSettings
         {
             var recorderWindow = EditorWindow.GetWindow<RecorderWindow>();
             if (!recorderWindow)
