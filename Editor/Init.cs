@@ -539,33 +539,31 @@ namespace UnityEditor.Ftrack.ConnectUnityEngine
             // Called by the Recorder when it is done recording
             // Will export the selection as a package if required, then call 
             // into the client to complete the publish
-            if (info.publishPackage)
+
+            string filePath = System.IO.Path.GetTempPath() + "/" +
+                Application.productName + "/" + "currentScene.unitypackage";
+
+            Scene currentScene = SceneManager.GetActiveScene();
+            bool exported = ExportScene(currentScene, filePath);
+
+            // Prepare export results for the client
+            using (Py.GIL())
             {
-                string filePath = System.IO.Path.GetTempPath() + "/" + 
-                    Application.productName + "/" + "currentScene.unitypackage";
+                dynamic args = publishArgs;
+                args["success"] = exported.ToPython();
 
-                Scene currentScene = SceneManager.GetActiveScene();
-                bool exported = ExportScene(currentScene, filePath);
-
-                // Prepare export results for the client
-                using (Py.GIL())
+                if (exported)
                 {
-                    dynamic args = publishArgs;
-                    args["success"] = exported.ToPython();
+                    args["package_filepath"] = filePath.ToPython();
 
-                    if (exported)
-                    {
-                        args["package_filepath"] = filePath.ToPython();
-
-                        string[] dependencies = AssetDatabase.GetDependencies(currentScene.path, true);
-                        args["package_dependencies"] = dependencies.ToPython();
-                    }
-                    else
-                    {
-                        string errorMsg = "Could not export the current scene. " +
-                            "Make sure a scene is loaded before publishing";
-                        args["error_msg"] = errorMsg.ToPython();
-                    }
+                    string[] dependencies = AssetDatabase.GetDependencies(currentScene.path, true);
+                    args["package_dependencies"] = dependencies.ToPython();
+                }
+                else
+                {
+                    string errorMsg = "Could not export the current scene. " +
+                        "Make sure a scene is loaded before publishing";
+                    args["error_msg"] = errorMsg.ToPython();
                 }
             }
 
